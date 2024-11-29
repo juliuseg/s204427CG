@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Environment Mapped Sphere</title>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 vPosition;   // Vertex position
+        attribute vec3 vNormal;     // Vertex normal for lighting (used only for sphere)
+        uniform mat4 M_tex;         // Texture transformation matrix
+        uniform mat4 mvpMatrix;     // Model-view-projection matrix (only for sphere)
+        uniform bool isBackground;  // Flag to indicate background or sphere rendering
+        varying vec3 texCoord;      // Texture coordinates for cube map lookup
+        varying vec3 fNormal;       // Normal for lighting calculation (only for sphere)
+        
+        void main() {
+            // Calculate texture coordinates by transforming vPosition with M_tex
+            vec4 worldDir = M_tex * vPosition;
+            texCoord = normalize(worldDir.xyz); // Use normalized direction for cube map lookup
+            
+            if (isBackground) {
+                // For background quad, use vPosition directly in clip space
+                gl_Position = vPosition;
+            } else {
+                // For sphere, apply MVP transformation
+                gl_Position = mvpMatrix * vPosition;
+                fNormal = vNormal;  // Pass the normal for lighting calculation on sphere
+            }
+        }
+    </script>
+    
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        uniform samplerCube cubemap; // Cube map texture
+        uniform vec3 lightDir;       // Light direction for lighting
+        uniform bool isBackground;   // Flag to indicate background or sphere rendering
+        varying vec3 texCoord;       // Texture coordinates for cube map lookup
+        varying vec3 fNormal;        // Normal for lighting (only meaningful for sphere)
+        
+        void main() {
+            vec4 texColor = textureCube(cubemap, texCoord); // Sample the color from the cube map
+    
+            if (isBackground) {
+                // Render the background quad without lighting
+                gl_FragColor = texColor;
+            } else {
+                // Apply lighting calculations for the sphere
+                vec3 N = normalize(fNormal);
+                vec3 L = normalize(lightDir);
+                float diffuse = max(dot(N, L), 0.0);
+                gl_FragColor = vec4(texColor.rgb * diffuse, texColor.a);
+            }
+        }
+    </script>
+
+    <script type="text/javascript" src="../../Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="../../Common/initShaders.js"></script>
+    <script type="text/javascript" src="../../Common/MV.js"></script>
+
+    <script type="text/javascript" src="W07P2.js"></script>
+
+    <script type="text/javascript" src="../res/SphereGeneration.js"></script>
+    <script type="text/javascript" src="../res/CubeMap.js"></script>
+    <script type="text/javascript" src="../res/setM_tex.js"></script>
+    <script type="text/javascript" src="../res/Camera.js"></script>
+
+
+</head>
+
+<body>
+    <canvas id="gl-canvas" width="512" height="512">
+        Sorry; your web browser does not support HTML5’s canvas element.
+    </canvas>
+</body>
+</html>

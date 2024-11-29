@@ -1,0 +1,34 @@
+
+                // Sample the normal map in tangent space (range [0, 1])
+                vec2 uv = vec2(0.5 + atan(texCoord.z, texCoord.x) / (2.0 * 3.14159), 
+                0.5 - asin(texCoord.y) / 3.14159);
+                vec3 tangentNormal = texture2D(normalMap, uv).rgb * 2.0 - 1.0;  // Convert to [-1, 1] range
+
+                // Debug step: visualize the tangent-space normal map (should show color variations)
+                // gl_FragColor = vec4(tangentNormal * 0.5 + 0.5, 1.0);
+                // return;
+
+                // Ensure `fNormal` is correctly normalized and represents the world-space normal
+                vec3 worldNormal = normalize(fNormal);
+
+                // Transform the tangent space normal to world space
+                vec3 bumpNormal = rotate_to_normal(normalize(fNormal), tangentNormal);
+                
+                // Debug step: visualize the bumpNormal in world space
+                // gl_FragColor = vec4(bumpNormal * 0.5 + 0.5, 1.0);
+                // return;
+
+                // Calculate the reflection vector using the transformed bumpNormal
+                vec3 R = reflect(-viewVector, bumpNormal);
+
+                // Sample the cube map using the reflection vector
+                vec4 texColor = textureCube(cubemap, R);
+
+                // Simple diffuse lighting
+                vec3 L = normalize(lightDir);          // Normalize light direction
+                float diffuse = max(dot(bumpNormal, L), 0.0); // Diffuse intensity
+
+
+                
+                // Combine diffuse lighting with reflection color
+                gl_FragColor = vec4(texColor.rgb * diffuse, texColor.a);

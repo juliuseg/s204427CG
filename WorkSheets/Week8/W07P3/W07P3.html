@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Environment Mapped sp</title>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 vPosition;       // Vertex position
+        attribute vec3 vNormal;         // Vertex normal for lighting
+        uniform mat4 M_tex;             // Texture transformation matrix
+        uniform mat4 mvpMatrix;         // Model-view-projection matrix
+        uniform bool isBackground;      // Flag to indicate background or sphere rendering
+        uniform bool reflective;        // Flag to indicate reflective object
+        uniform vec3 eyePosition;       // Eye position in world coordinates
+        varying vec3 texCoord;          // Texture coordinates for cube map lookup
+        varying vec3 fNormal;           // Normal for lighting calculation (only for sphere)
+        varying vec3 viewVector;        // View vector for reflection calculation
+        
+        void main() {
+            if (isBackground) {
+                gl_Position = vPosition;
+                texCoord = normalize((M_tex * vPosition).xyz);
+            } else {
+                gl_Position = mvpMatrix * vPosition;
+                fNormal = vNormal;  // Pass the normal for lighting calculation
+                vec3 worldPos = (M_tex * vPosition).xyz;
+                viewVector = normalize(eyePosition - worldPos); // Compute view vector
+                
+                if (reflective) {
+                    texCoord = reflect(-viewVector, normalize(vNormal));  // Reflective texCoord
+                } else {
+                    texCoord = normalize(worldPos); // Normal texCoord for non-reflective
+                }
+            }
+        }
+
+    </script>
+    
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        uniform samplerCube cubemap;    // Cube map texture
+        uniform vec3 lightDir;          // Light direction for lighting
+        uniform bool isBackground;      // Flag to indicate background or sphere rendering
+        uniform bool reflective;        // Flag to indicate reflective object
+        varying vec3 texCoord;          // Texture coordinates for cube map lookup
+        varying vec3 fNormal;           // Normal for lighting (only meaningful for sphere)
+        varying vec3 viewVector;        // View vector for reflection
+        
+        void main() {
+            if (isBackground) {
+                gl_FragColor = textureCube(cubemap, texCoord);
+            } else {
+                vec3 N = normalize(fNormal);
+                vec3 R = reflective ? reflect(-viewVector, N) : texCoord;  // Calculate reflection vector only if reflective
+                vec4 texColor = textureCube(cubemap, R);  // Use reflection direction for sampling
+                
+                vec3 L = normalize(lightDir);
+                float diffuse = max(dot(N, L), 0.0);
+                gl_FragColor = vec4(texColor.rgb * diffuse, texColor.a);
+            }
+        }
+        
+    </script>
+
+    <script type="text/javascript" src="../../Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="../../Common/initShaders.js"></script>
+    <script type="text/javascript" src="../../Common/MV.js"></script>
+
+    <script type="text/javascript" src="W07P3.js"></script>
+
+    <script type="text/javascript" src="../res/SphereGeneration.js"></script>
+    <script type="text/javascript" src="../res/CubeMap.js"></script>
+    <script type="text/javascript" src="../res/setM_tex.js"></script>
+    <script type="text/javascript" src="../res/Camera.js"></script>
+
+</head>
+
+<body>
+    <canvas id="gl-canvas" width="512" height="512">
+        Sorry; your web browser does not support HTML5’s canvas element.
+    </canvas>
+</body>
+</html>

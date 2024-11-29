@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <script id="vertex-shader" type="x-shader/x-vertex">
+      attribute vec4 vPosition;
+      void main() {
+        gl_PointSize = 20.0;  // Set point size
+        gl_Position = vPosition;
+      }
+      </script>
+  <script id="fragment-shader" type="x-shader/x-fragment">
+      precision mediump float;
+      void main() {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+      }
+      </script>
+  <script type="text/javascript" src="../Common/webgl-utils.js"></script>
+  <script type="text/javascript" src="../Common/initShaders.js"></script>
+  <script type="text/javascript" src="../Common/MV.js"></script>
+  <script type="text/javascript" src="W02.js"></script>
+</head>
+
+<body>
+  <canvas id="gl-canvas" width="512" height="512">
+    <!-- The following message is displayed if the browser doesn’t
+      -- support HTML5 -->
+    Sorry; your web browser does not support HTML5’s canvas element.
+  </canvas>
+  <select id="ColorMenu" size="3">
+    <option value="0">Red</option>
+    <option value="1">Green</option>
+    <option value="2">Blue</option>
+  </select>
+  <button id="ClearButton">Clear Canvas</button>
+</body>
+
+</html>

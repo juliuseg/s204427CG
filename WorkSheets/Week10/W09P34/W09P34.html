@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script id="vertex-shader-teapot" type="x-shader/x-vertex">
+    attribute vec4 vPosition;
+    attribute vec3 vNormal;
+
+    uniform mat4 mvpMatrix;
+    uniform mat4 modelMatrix; // To transform normals into world space
+    uniform vec3 lightDirection;
+
+    varying float lightIntensity;
+
+    void main() {
+        gl_Position = mvpMatrix * vPosition;
+
+        // Transform the normal to world space and normalize
+        vec3 transformedNormal = normalize(mat3(modelMatrix) * vNormal);
+
+        // Compute simple diffuse lighting
+        lightIntensity = max(dot(transformedNormal, normalize(lightDirection)), 0.0);
+    }
+  </script>
+
+  <script id="fragment-shader-teapot" type="x-shader/x-fragment">
+    precision mediump float;
+
+    varying float lightIntensity;
+    
+
+    void main() {
+        vec3 baseColor = vec3(0.6, 0.6, 0.6); // Red
+        gl_FragColor = vec4(baseColor * lightIntensity, 1.0);
+    }
+  </script>
+
+
+  <script id="vertex-shader-ground" type="x-shader/x-vertex">
+    attribute vec4 vPosition;      // Vertex position
+    attribute vec2 vTexCoord;      // Texture coordinates
+
+    uniform mat4 mvpMatrix;        // Model-View-Projection matrix
+    uniform mat4 modelMatrix;      // Model matrix for world-space calculation
+    uniform mat4 lightMVPMatrix;   // Light's Model-View-Projection matrix
+
+    varying vec2 fTexCoord;        // Pass texture coordinates to fragment shader
+    varying vec4 fragPosition;     // World-space position for shadow mapping
+
+    varying vec4 lightSpacePosition; // Add varying to pass light space position
+
+    void main() {
+        fTexCoord = vTexCoord;
+        fragPosition = modelMatrix * vPosition;
+
+        // Pass the light space position to the fragment shader
+        lightSpacePosition = lightMVPMatrix * fragPosition;
+
+        gl_Position = mvpMatrix * vPosition;
+    }
+
+  </script>
+
+  <script id="fragment-shader-ground" type="x-shader/x-fragment">
+    precision mediump float;
+
+    uniform sampler2D texture;      // Ground texture
+    uniform sampler2D shadowMap;    // Shadow map from the light's POV
+
+    varying vec2 fTexCoord;         // Interpolated texture coordinates
+    varying vec4 fragPosition;      // Interpolated world-space position
+
+    varying vec4 lightSpacePosition; // Use varying from vertex shader
+
+    void main() {
+
+        // Normalize coordinates
+        vec3 lightTexCoords = lightSpacePosition.xyz / lightSpacePosition.w;
+        lightTexCoords = lightTexCoords * 0.5 + 0.5;
+
+        // Sample the shadow map
+        float sampledDepth = texture2D(shadowMap, lightTexCoords.xy).r;
+
+        // Compare depths
+        float fragDepth = lightTexCoords.z;
+        float visibility = (fragDepth > sampledDepth + 0.005) ? 0.5 : 1.0;
+
+        // Compute final color with shadow
+        vec4 baseColor = texture2D(texture, fTexCoord); // Sample ground texture
+        gl_FragColor = vec4(baseColor.rgb * visibility, baseColor.a);
+    }
+
+  </script> 
+
+
+  <script type="text/javascript" src="../../Common/webgl-utils.js"></script>
+  <script type="text/javascript" src="../../Common/initShaders.js"></script>
+  <script type="text/javascript" src="../../Common/MV.js"></script>
+  <script type="text/javascript" src="W09P34.js"></script>
+  <script type="text/javascript" src="../res/OBJParser.js"></script>
+  <script type="text/javascript" src="../res/Camera.js"></script>
+
+</head>
+<body>
+  <canvas id="gl-canvas" width="512" height="512">
+    Sorry; your web browser does not support HTML5’s canvas element.
+  </canvas>
+</body>
+</html>

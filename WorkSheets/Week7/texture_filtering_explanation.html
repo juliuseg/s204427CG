@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Texture Filtering Modes Explanation</title>
+</head>
+<body>
+    <h1>Texture Filtering Modes</h1>
+    
+    <p>Texture filtering controls how textures look when resized. Here’s a quick rundown of the main filtering options:</p>
+    
+    <h2>1. Nearest</h2>
+    <p>Uses the closest texel color without smoothing. This can look blocky or pixelated when zoomed in.</p>
+
+    <h2>2. Linear</h2>
+    <p>Blends colors of nearby texels to smooth the texture. Reduces blockiness but can look blurry when scaled down.</p>
+
+    <h2>3. Nearest Mipmap Nearest</h2>
+    <p>Chooses the nearest mipmap level (precomputed smaller textures) and applies nearest filtering within that level. Reduces aliasing but may cause “popping” when switching between levels.</p>
+
+    <h2>4. Linear Mipmap Nearest</h2>
+    <p>Chooses the nearest mipmap level and applies linear filtering within that level. Smooths texture a bit more but still has visible transitions between mipmaps.</p>
+
+    <h2>5. Nearest Mipmap Linear</h2>
+    <p>Interpolates between two mipmap levels with nearest filtering. Reduces popping but may still look pixelated within levels.</p>
+
+    <h2>6. Linear Mipmap Linear</h2>
+    <p>The smoothest option, blending both between mipmap levels and within each level. Ideal for high quality but slower to render.</p>
+
+    <h2>Summary</h2>
+    <p><strong>Nearest:</strong> Fast, but blocky.<br>
+       <strong>Linear:</strong> Smoother, can be blurry.<br>
+       <strong>Mipmaps:</strong> Helps reduce aliasing, with various levels of smoothness and performance.</p>
+</body>
+</html>

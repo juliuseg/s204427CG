@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Environment Mapped Sphere</title>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 vPosition;       // Vertex position
+        attribute vec3 vNormal;         // Vertex normal (should be passed as an attribute)
+
+        uniform mat4 M_tex;             // Texture transformation matrix
+        uniform mat4 mvpMatrix;         // Model-view-projection matrix
+        uniform bool isBackground;      // Flag to indicate background or sphere rendering
+        uniform vec3 eyePosition;       // Eye position in world coordinates (provided by JavaScript)
+
+        varying vec3 texCoord;          // Texture coordinates for cube map lookup
+        varying vec3 fNormal;           // Normal for lighting calculation (only for sphere)
+        varying vec3 viewVector;        // View vector for reflection calculation
+
+        void main() {
+            if (isBackground) {
+                gl_Position = vPosition;
+                texCoord = normalize((M_tex * vPosition).xyz);
+                
+            } else {
+                gl_Position = mvpMatrix * vPosition;
+                fNormal = vNormal;  // Pass the normal for lighting calculation
+                vec3 worldPos = (M_tex * vPosition).xyz;
+                viewVector = normalize(eyePosition - worldPos); // Compute view vector
+                
+                texCoord = reflect(-viewVector, normalize(vNormal));  // Reflective texCoord
+
+                gl_Position = mvpMatrix * vPosition;
+                texCoord = normalize(vPosition.xyz); // Texture coordinates for sphere
+                
+            }
+        }
+    </script>
+    
+    
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        uniform samplerCube cubemap; 
+        uniform sampler2D normalMap; 
+        uniform bool isBackground;
+        uniform vec3 lightDir;
+        uniform float bumpIntensity;
+
+        varying vec3 texCoord;
+        varying vec3 fNormal;
+        varying vec3 viewVector;
+
+        // Helper function for tangent to world space transformation
+        vec3 rotate_to_normal(vec3 n, vec3 v) {
+            float sgn_nz = sign(n.z + 1.0e-16);
+            float a = -1.0 / (1.0 + abs(n.z));
+            float b = n.x * n.y * a;
+            return vec3(1.0 + n.x * n.x * a, b, -sgn_nz * n.x) * v.x
+                + vec3(sgn_nz * b, sgn_nz * (1.0 + n.y * n.y * a), -n.y) * v.y
+                + n * v.z;
+        }
+
+        void main() {
+            if (isBackground) {
+                // Render background
+                vec4 texColor = textureCube(cubemap, texCoord);
+                gl_FragColor = texColor;
+            } else {
+
+                vec2 uv = vec2(0.5 + atan(texCoord.z, texCoord.x) / (2.0 * 3.14159), 
+                               0.5 - asin(texCoord.y) / 3.14159);
+                
+                vec3 tangentNormal = texture2D(normalMap, uv).rgb * 2.0 - 1.0;
+
+                // Step 2: Normalize `tangentNormal` just in case
+                tangentNormal = normalize(tangentNormal);
+
+                vec3 N = normalize(fNormal);
+
+                vec3 bumpNormal = rotate_to_normal(N, tangentNormal);
+                
+                // Bump intensity
+                vec3 blendedNormal = normalize(mix(N, bumpNormal, bumpIntensity));  
+
+                vec3 R = reflect(-viewVector, blendedNormal);  
+                vec4 texColor = textureCube(cubemap, R);  // Use reflection direction for sampling
+                
+                vec3 L = normalize(lightDir);
+                float diffuse = max(dot(N, L), 0.0);
+
+                gl_FragColor = vec4(texColor.rgb * diffuse, texColor.a);
+                return;
+
+            }
+        }
+    </script>
+    
+
+    <script type="text/javascript" src="../../Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="../../Common/initShaders.js"></script>
+    <script type="text/javascript" src="../../Common/MV.js"></script>
+
+    <script type="text/javascript" src="W07P4.js"></script>
+
+    <script type="text/javascript" src="../res/SphereGeneration.js"></script>
+    <script type="text/javascript" src="../res/CubeMap.js"></script>
+    <script type="text/javascript" src="../res/setM_tex.js"></script>
+    <script type="text/javascript" src="../res/BumpMap.js"></script>
+    <script type="text/javascript" src="../res/Camera.js"></script>
+
+</head>
+
+<body>
+    <canvas id="gl-canvas" width="512" height="512">
+        Sorry; your web browser does not support HTML5’s canvas element.
+    </canvas>
+    <div>
+        <label for="bump-slider">Bump Intensity:</label>
+        <input type="range" id="bump-slider" min="0" max="2" step="0.01" value="0.5">
+        <span id="bump-value">0.5</span>
+    </div>
+</body>
+</html>

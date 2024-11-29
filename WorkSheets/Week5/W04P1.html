@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <script id="vertex-shader" type="x-shader/x-vertex">
+      attribute vec4 vPosition;
+      uniform mat4 mvpMatrix;
+
+      void main() {
+          gl_Position = mvpMatrix * vPosition;
+
+          
+      }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+      precision mediump float;
+      
+      void main() {
+          // Set the fragment color to black
+          gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);  
+      }
+  </script>
+
+  <script type="text/javascript" src="../Common/webgl-utils.js"></script>
+  <script type="text/javascript" src="../Common/initShaders.js"></script>
+  <script type="text/javascript" src="../Common/MV.js"></script>
+  <script type="text/javascript" src="W04P1.js"></script>
+</head>
+
+<body>
+  <canvas id="gl-canvas" width="512" height="512">
+    Sorry; your web browser does not support HTML5’s canvas element.
+  </canvas>
+  <button id="AddSubdivision">Add Subdivision</button>
+  <button id="RemoveSubdivision">Remove Subdivision</button>
+
+</body>
+
+</html>

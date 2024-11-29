@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec4 vPosition;   // Vertex position
+    attribute vec3 vNormal;     // Vertex normal
+    uniform mat4 mvpMatrix;     // Model-view-projection matrix
+
+    varying vec4 fColor;        // Varying to pass the color to fragment shader
+
+    // Light properties
+    const vec3 lightDir = vec3(0.0, 0.0, -1.0); // Directional light direction (distant light)
+    const vec3 Ld = vec3(1.0, 1.0, 1.0);        // Light intensity (white light)
+    const vec3 kd = vec3(1.0, 0.5, 0.31);       // Diffuse reflection coefficient
+
+    void main() {
+        // Transform the vertex position
+        gl_Position = mvpMatrix * vPosition;
+
+        // Normalize the normal vector
+        vec3 N = normalize(vNormal);
+
+        // Compute the diffuse reflection using Lambert's cosine law
+        float diffuse = max(dot(N, lightDir), 0.0); // cos(theta) = N · L
+
+        // Compute the final color as diffuse light * diffuse reflection coefficient
+        vec3 diffuseColor = diffuse * Ld * kd;
+
+        // Pass the color to the fragment shader
+        fColor = vec4(diffuseColor, 1.0);
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+    varying vec4 fColor;  // The interpolated color from the vertex shader
+
+    void main() {
+        // Output the color computed in the vertex shader
+        gl_FragColor = fColor;
+    }
+  </script>
+  </script>
+
+  <script type="text/javascript" src="../Common/webgl-utils.js"></script>
+  <script type="text/javascript" src="../Common/initShaders.js"></script>
+  <script type="text/javascript" src="../Common/MV.js"></script>
+  <script type="text/javascript" src="W04P3.js"></script>
+</head>
+
+<body>
+  <canvas id="gl-canvas" width="512" height="512">
+    Sorry; your web browser does not support HTML5’s canvas element.
+  </canvas>
+  <button id="AddSubdivision">Add Subdivision</button>
+  <button id="RemoveSubdivision">Remove Subdivision</button>
+
+</body>
+
+</html>

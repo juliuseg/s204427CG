@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Computer Graphics Questions</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+    h2 { color: #333; }
+    h3 { color: #555; }
+    p, li { margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Computer Graphics Questions</h2>
+
+  <h3>(a) Difference between Phong Shading and Phong Lighting</h3>
+  <p><strong>Phong Reflection Model (or Phong lighting):</strong> A method for calculating light interaction with surfaces, using ambient, diffuse, and specular components.</p>
+  <p><strong>Phong Shading:</strong> Applies the Phong reflection model per pixel, resulting in smoother highlights.</p>
+  <p><em>Summary:</em> Phong lighting describes the light reflection model, while Phong shading describes applying this model per fragment for smoother visuals.</p>
+
+  <h3>(b) Difference between Flat, Gouraud, and Phong Shading</h3>
+  <ul>
+    <li><strong>Flat Shading:</strong> Lighting is computed once per face, giving a uniform color.<br>
+        <em>Pros:</em> Fast, suitable for faceted surfaces.<br>
+        <em>Cons:</em> Unrealistic on curved surfaces.</li>
+    <li><strong>Gouraud Shading:</strong> Lighting is calculated per vertex, with colors interpolated across the surface.<br>
+        <em>Pros:</em> More realistic than flat shading; efficient.<br>
+        <em>Cons:</em> Inaccurate highlights, especially on large polygons.</li>
+    <li><strong>Phong Shading:</strong> Lighting is computed per pixel for smooth gradients.<br>
+        <em>Pros:</em> High realism, especially for specular highlights.<br>
+        <em>Cons:</em> More computationally expensive.</li>
+  </ul>
+  <p><em>Best for Highlights:</em> Phong shading captures highlights more accurately.</p>
+
+  <h3>(c) Difference between Directional and Point Lights</h3>
+  <p><strong>Directional Light:</strong> Represents light from a distant source (e.g., the sun), with parallel rays.</p>
+  <p><strong>Point Light:</strong> Represents light emitted from a point, with intensity decreasing by distance.</p>
+
+  <h3>(d) Influence of Eye Position on Shading</h3>
+  <p>The eye position affects the specular highlight by influencing the view direction, which determines the highlight’s intensity and placement.</p>
+
+  <h3>(e) Effect of Setting Specular Term to (0,0,0)</h3>
+  <p>Setting the specular term to <code>(0,0,0)</code> removes the specular component, making the object appear matte with no reflective highlights.</p>
+
+  <h3>(f) Effect of Increasing the Shininess Exponent (α)</h3>
+  <p>Higher shininess exponent values make specular highlights sharper and smaller, simulating smooth surfaces like metal.</p>
+</body>
+</html>

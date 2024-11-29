@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Earth Texture Mapping</title>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 vPosition;   // Vertex position
+        attribute vec3 vNormal;     // Vertex normal
+        uniform mat4 mvpMatrix;     // Model-view-projection matrix
+        varying vec3 fNormal;       // Normal passed to fragment shader
+        varying vec3 fPosition;     // Position passed to fragment shader
+    
+        void main() {
+            gl_Position = mvpMatrix * vPosition;
+            fNormal = vNormal;
+            fPosition = vec3(vPosition);
+        }
+    </script>
+    
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        uniform samplerCube cubemap; // Use samplerCube for cube map texture
+        uniform vec3 lightDir;
+        varying vec3 fNormal;
+        varying vec3 fPosition;
+    
+        void main() {
+            // Normalize normal and light direction
+            vec3 N = normalize(fNormal);
+            vec3 L = normalize(lightDir);
+
+            // Compute diffuse lighting
+            float diffuse = max(dot(N, L), 0.0);
+    
+            // Use the normal as texture coordinates for the cube map
+            vec4 texColor = textureCube(cubemap, N);
+    
+            // Apply lighting to texture color
+            gl_FragColor = vec4(texColor.rgb * diffuse, texColor.a);
+        }
+    </script>
+
+    <script type="text/javascript" src="../../Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="../../Common/initShaders.js"></script>
+    <script type="text/javascript" src="../../Common/MV.js"></script>
+
+    <script type="text/javascript" src="W07P1.js"></script>
+
+    <script type="text/javascript" src="../res/SphereGeneration.js"></script>
+    <script type="text/javascript" src="../res/CubeMap.js"></script>
+    <script type="text/javascript" src="../res/Camera.js"></script>
+
+
+
+</head>
+
+<body>
+    <canvas id="gl-canvas" width="512" height="512">
+        Sorry; your web browser does not support HTML5’s canvas element.
+    </canvas>
+    <button id="AddSubdivision">Add Subdivision</button>
+    <button id="RemoveSubdivision">Remove Subdivision</button>
+</body>
+</html>

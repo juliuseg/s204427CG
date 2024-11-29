@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec4 vPosition;   // Vertex position
+    attribute vec3 vNormal;     // Vertex normal
+    uniform mat4 mvpMatrix;     // Model-view-projection matrix
+
+    varying vec3 fragPosition;  // Pass position to fragment shader
+    varying vec3 fragNormal;    // Pass normal to fragment shader
+
+    void main() {
+        // Transform the vertex position
+        gl_Position = mvpMatrix * vPosition;
+
+        // Pass the position and normal to the fragment shader
+        fragPosition = vPosition.xyz;
+        fragNormal = vNormal;
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+
+    varying vec3 fragPosition;  // Interpolated position
+    varying vec3 fragNormal;    // Interpolated normal
+
+    uniform vec3 V; // Camera position in world space (view direction)
+
+    // Lighting and material properties
+    uniform vec3 lightDir; // Directional light direction (distant light)
+    uniform vec3 Ld;       // Diffuse light intensity
+    uniform vec3 La;       // Ambient light intensity
+    uniform vec3 Ls;       // Specular light intensity
+
+    uniform vec3 kd;       // Diffuse reflection coefficient (sphere color)
+    uniform vec3 ka;       // Ambient reflection coefficient
+    uniform vec3 ks;       // Specular reflection coefficient
+    uniform float s;       // Shininess (Phong exponent)
+
+    void main() {
+      // Re-normalize the normal vector because it has been interpolated
+      vec3 N = normalize(fragNormal);
+      
+      // Normalize the light direction
+      vec3 L = normalize(lightDir);
+
+      // Calculate the view direction from the fragment to the camera position
+      vec3 viewDir = normalize(V - fragPosition);
+
+      // Ambient component
+      vec3 ambient = ka * La;
+
+      // Diffuse component
+      float diffuseFactor = max(dot(N, L), 0.0);
+      vec3 diffuse = kd * Ld * diffuseFactor;
+
+      // Specular component
+      vec3 R = reflect(-L, N); // Reflection direction
+      float specularFactor = pow(max(dot(R, viewDir), 0.0), s);
+      vec3 specular = ks * Ls * specularFactor;
+
+      // Combine all components
+      vec3 finalColor = ambient + diffuse + specular;
+
+      // Output the final color
+      gl_FragColor = vec4(finalColor, 1.0);
+    }
+  </script>
+
+  <script type="text/javascript" src="../Common/webgl-utils.js"></script>
+  <script type="text/javascript" src="../Common/initShaders.js"></script>
+  <script type="text/javascript" src="../Common/MV.js"></script>
+  <script type="text/javascript" src="W04P5.js"></script>
+
+  <style>
+    /* Layout for the container */
+    .container {
+      display: flex;
+      align-items: flex-start;
+    }
+
+    /* Canvas styling */
+    #gl-canvas {
+      border: 1px solid black;
+    }
+
+    /* Sidebar for controls */
+    .controls {
+      margin-left: 20px;
+    }
+
+    /* Styling for sliders and labels */
+    h3 {
+      margin-top: 0;
+    }
+
+    .slider-label {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .slider-label label {
+      margin-right: 10px;
+      width: 200px;
+    }
+
+    input[type="range"] {
+      width: 200px;
+    }
+
+    /* Button styling */
+    button {
+      margin-top: 10px;
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <canvas id="gl-canvas" width="512" height="512">
+      Sorry; your web browser does not support HTML5’s canvas element.
+    </canvas>
+
+    <div class="controls">
+      <button id="AddSubdivision">Add Subdivision</button>
+      <button id="RemoveSubdivision">Remove Subdivision</button>
+      <div class="slider-label">
+        <label for="spdSlider">Animation speed:</label>
+        <input type="range" id="spdSlider" min="0" max="10" step="0.05" value="1.5">
+      </div>
+
+      <br><br>
+
+      <div>
+        <h3>Material Parameters</h3>
+        
+        <div class="slider-label">
+          <label for="kdSlider">Diffuse Reflection Coefficient (kd):</label>
+          <input type="range" id="kdSlider" min="0" max="1" step="0.01" value="0.5">
+        </div>
+
+        <div class="slider-label">
+          <label for="ksSlider">Specular Reflection Coefficient (ks):</label>
+          <input type="range" id="ksSlider" min="0" max="1" step="0.01" value="0.5">
+        </div>
+
+        <div class="slider-label">
+          <label for="shininessSlider">Shininess (s):</label>
+          <input type="range" id="shininessSlider" min="1" max="100" step="1" value="32">
+        </div>
+
+        <br><br>
+
+        <h3>Light Parameters</h3>
+
+        <div class="slider-label">
+          <label for="leSlider">Emitted Light Intensity (Le):</label>
+          <input type="range" id="leSlider" min="0" max="1" step="0.01" value="0.8">
+        </div>
+
+        <div class="slider-label">
+          <label for="laSlider">Ambient Light Intensity (La):</label>
+          <input type="range" id="laSlider" min="0" max="1" step="0.01" value="0.15">
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

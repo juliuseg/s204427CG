@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script id="vertex-shader-teapot" type="x-shader/x-vertex">
+    attribute vec4 vPosition;
+    attribute vec3 vNormal;
+
+    uniform mat4 mvpMatrix;
+    uniform mat4 modelMatrix; // To transform normals into world space
+    uniform vec3 lightDirection;
+
+    varying float lightIntensity;
+
+    void main() {
+        gl_Position = mvpMatrix * vPosition;
+
+        // Transform the normal to world space and normalize
+        vec3 transformedNormal = normalize(mat3(modelMatrix) * vNormal);
+
+        // Compute simple diffuse lighting
+        lightIntensity = max(dot(transformedNormal, normalize(lightDirection)), 0.0);
+    }
+  </script>
+
+  <script id="fragment-shader-teapot" type="x-shader/x-fragment">
+    precision mediump float;
+
+    varying float lightIntensity;
+
+    void main() {
+        vec3 baseColor = vec3(0.6, 0.6, 0.6); // Red
+        gl_FragColor = vec4(baseColor * lightIntensity, 1.0);
+    }
+  </script>
+
+
+  <script id="vertex-shader-ground" type="x-shader/x-vertex">
+    attribute vec4 vPosition;
+    attribute vec2 vTexCoord;
+    uniform mat4 mvpMatrix;
+    varying vec2 fTexCoord;
+
+    void main() {
+        gl_Position = mvpMatrix * vPosition;
+        fTexCoord = vTexCoord;
+    }
+  </script>
+
+  <script id="fragment-shader-ground" type="x-shader/x-fragment">
+    precision mediump float;
+    varying vec2 fTexCoord;
+    uniform sampler2D texture;
+
+    void main() {
+        gl_FragColor = texture2D(texture, fTexCoord);
+    }
+  </script> 
+
+
+  <script type="text/javascript" src="../../Common/webgl-utils.js"></script>
+  <script type="text/javascript" src="../../Common/initShaders.js"></script>
+  <script type="text/javascript" src="../../Common/MV.js"></script>
+  <script type="text/javascript" src="W09P1.js"></script>
+  <script type="text/javascript" src="../res/OBJParser.js"></script>
+  <script type="text/javascript" src="../res/Camera.js"></script>
+
+</head>
+<body>
+  <canvas id="gl-canvas" width="512" height="512">
+    Sorry; your web browser does not support HTML5’s canvas element.
+  </canvas>
+  <button id="toggleJumping">Toggle Jumping Teapot</button>
+</body>
+</html>

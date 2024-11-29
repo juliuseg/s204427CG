@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Environment Mapped Sphere</title>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 vPosition;
+        uniform mat4 mvpMatrix;
+        uniform mat4 M_tex;         // Texture transformation matrix
+        uniform bool isBackground;
+        varying vec3 texCoord;
+    
+        void main() {
+            vec4 worldDir;
+            if (isBackground) {
+                // For background, use M_tex to transform vPosition
+                worldDir = M_tex * vPosition;
+                texCoord = normalize(worldDir.xyz);
+                gl_Position = vPosition;
+            } else {
+                // For sphere, apply MVP transformation
+                gl_Position = mvpMatrix * vPosition;
+                texCoord = normalize(vPosition.xyz); // Texture coordinates for sphere
+            }
+        }
+    </script>
+    
+    
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        uniform samplerCube cubemap; 
+        uniform sampler2D normalMap; 
+        uniform bool isBackground;
+        varying vec3 texCoord;
+    
+        void main() {
+            if (isBackground) {
+                vec4 texColor = textureCube(cubemap, texCoord); // Sample the color from the cube map
+                gl_FragColor = texColor;
+            } else {
+                vec2 uv = vec2(0.5 + atan(texCoord.z, texCoord.x) / (2.0 * 3.14159), 
+                               0.5 - asin(texCoord.y) / 3.14159);
+                gl_FragColor = texture2D(normalMap, uv); // Apply normal map to sphere
+            }
+        }
+    </script>
+    
+
+    <script type="text/javascript" src="../../Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="../../Common/initShaders.js"></script>
+    <script type="text/javascript" src="../../Common/MV.js"></script>
+
+    <script type="text/javascript" src="W07P4BumpMapOnly.js"></script>
+
+    <script type="text/javascript" src="../res/SphereGeneration.js"></script>
+    <script type="text/javascript" src="../res/CubeMap.js"></script>
+    <script type="text/javascript" src="../res/setM_tex.js"></script>
+    <script type="text/javascript" src="../res/BumpMap.js"></script>
+    <script type="text/javascript" src="../res/Camera.js"></script>
+</head>
+
+<body>
+    <canvas id="gl-canvas" width="512" height="512">
+        Sorry; your web browser does not support HTML5’s canvas element.
+    </canvas>
+</body>
+</html>

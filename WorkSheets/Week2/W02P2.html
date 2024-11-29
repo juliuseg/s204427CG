@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 vPosition;  
+        attribute vec4 vColor;    
+
+        varying vec4 fColor;      
+
+        void main() {
+            gl_PointSize = 20.0;  // Set point size
+
+            gl_Position = vPosition;
+            fColor = vColor;       
+        }
+      </script>
+  <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+        varying vec4 fColor;  // Receive the interpolated color from the vertex shader
+
+        void main() {
+            gl_FragColor = fColor;  // Set the fragment color to the interpolated color
+        }
+      </script>
+  <script type="text/javascript" src="../Common/webgl-utils.js"></script>
+  <script type="text/javascript" src="../Common/initShaders.js"></script>
+  <script type="text/javascript" src="../Common/MV.js"></script>
+  <script type="text/javascript" src="W02P2.js"></script>
+
+
+
+
+</head>
+
+<body>
+  <!-- Header section -->
+  <div style="height: 30px; padding: 0px; background-color: #ffffff; display: flex; align-items: center;">
+    <label for="CanvasColorMenu" style="font-weight: bold; margin-right: 10px;">Choose a drawing mode:</label>
+    <button id="AddPoints" style="margin-right: 10px;">Add points</button>
+    <button id="AddTriangles" style="margin-right: 10px;">Add triangles</button>
+    <button id="AddCircles">Add circles</button>
+  </div>
+
+  <div style="display: flex;">
+    <!-- Canvas on the left -->
+    <canvas id="gl-canvas" width="600" height="600" style="border: 1px solid black;"></canvas>
+
+    <!-- Menus on the right -->
+    <div style="margin-left: 20px;">
+      <!-- Title for the canvas color menu -->
+      <label for="CanvasColorMenu" style="font-weight: bold;">Select Canvas Color:</label>
+      <br>
+      <select id="CanvasColorMenu" size="9">
+        <option value="0">Red</option>
+        <option value="1">Green</option>
+        <option value="2">Blue</option>
+        <option value="3">Yellow</option>
+        <option value="4">Magenta</option>
+        <option value="5">Cyan</option>
+        <option value="6">White</option>
+        <option value="7">Cornflower Blue</option>
+        <option value="8">Black/Grey</option>
+      </select>
+      <br><br>
+
+      <!-- Title for the point color menu -->
+      <label for="PointColorMenu" style="font-weight: bold;">Select Draw Color:</label>
+      <br>
+      <select id="PointColorMenu" size="9">
+        <option value="0">Red</option>
+        <option value="1">Green</option>
+        <option value="2">Blue</option>
+        <option value="3">Yellow</option>
+        <option value="4">Magenta</option>
+        <option value="5">Cyan</option>
+        <option value="6">White</option>
+        <option value="7">Cornflower Blue</option>
+        <option value="8">Black/Grey</option>
+      </select>
+      <br><br>
+
+      <!-- PointSize slider -->
+      <label for="PointSizeSlider" style="font-weight: bold;">Point Size:</label>
+      <br>
+      <input id="slide" type="range" min="0" max="100" step="5" value="50" />
+      <br><br>
+      
+      <!-- Button to clear the canvas -->
+      <button id="ClearButton">Clear Canvas</button>
+    </div>
+  </div>
+</body>
+
+</html>
