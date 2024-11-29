@@ -35,24 +35,58 @@
 
 
   <script id="vertex-shader-ground" type="x-shader/x-vertex">
-    attribute vec4 vPosition;
-    attribute vec2 vTexCoord;
-    uniform mat4 mvpMatrix;
-    varying vec2 fTexCoord;
+    attribute vec4 vPosition;       // Vertex position
+    attribute vec2 vTexCoord;      // Texture coordinates
+
+    uniform mat4 mvpMatrix;        // Camera's Model-View-Projection (MVP) matrix
+    uniform mat4 uLightMVP;        // Light's Model-View-Projection (MVP) matrix
+
+    varying vec2 fTexCoord;        // Pass texture coordinates to the fragment shader
+    varying vec4 vLightSpacePos;   // Pass light-space position to the fragment shader
 
     void main() {
+        // Transform the vertex position to camera space
         gl_Position = mvpMatrix * vPosition;
+
+        // Transform the vertex position to light space
+        vLightSpacePos = uLightMVP * vPosition;
+
+        // Pass texture coordinates to the fragment shader
         fTexCoord = vTexCoord;
     }
   </script>
 
+
   <script id="fragment-shader-ground" type="x-shader/x-fragment">
     precision mediump float;
-    varying vec2 fTexCoord;
-    uniform sampler2D texture;
+
+    varying vec2 fTexCoord;        // Interpolated texture coordinates
+    varying vec4 vLightSpacePos;   // Interpolated light-space position
+
+    uniform sampler2D texture;    // Ground texture sampler
+    uniform sampler2D uShadowMap; // Shadow map texture
 
     void main() {
-        gl_FragColor = texture2D(texture, fTexCoord);
+        // Sample the ground texture
+        vec4 baseColor = texture2D(texture, fTexCoord);
+
+        // Transform light-space position to NDC
+        vec3 lightNDC = vLightSpacePos.xyz / vLightSpacePos.w;
+
+        // Map NDC [-1, 1] to [0, 1] for shadow map texture coordinates
+        vec2 shadowTexCoord = lightNDC.xy * 0.5 + 0.5;
+
+        // Fetch the depth from the shadow map
+        float shadowMapDepth = texture2D(uShadowMap, shadowTexCoord).r;
+
+        // Compare current depth with shadow map depth
+        float currentDepth = lightNDC.z;
+
+        // Add a small bias to avoid shadow acne
+        float shadowFactor = currentDepth > shadowMapDepth + 0.005 ? 1.0 : 0.5;
+
+        // Apply the shadow factor to the base color
+        gl_FragColor = vec4(baseColor.rgb * shadowFactor, baseColor.a);
     }
   </script> 
 

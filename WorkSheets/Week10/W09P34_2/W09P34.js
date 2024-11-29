@@ -77,7 +77,7 @@ function setupMatricies() {
     teapotModelMatrix = translate(1.0, -0.5, -2.5);
     groundModelMatrix = mat4();
 
-    projectionMatrix = perspective(90, canvas.width / canvas.height, 0.1, 50.0);
+    projectionMatrix = perspective(90, canvas.width / canvas.height, 0.1, 20.0);
     viewMatrix = lookAt(vec3(0, 0, 0), vec3(0.0, -1.0, -2.5), vec3(0.0, 1.0, 0.0));
 
     
@@ -90,7 +90,6 @@ function setupShadowMapping() {
 
     lightProjectionMatrix = perspective(90, canvas.width / canvas.height, 2.0, 20.0);
     lightViewMatrix = lookAt(vec3(3, 3, 0), vec3(0.0, -1.0, -3.0), vec3(0.0, 1.0, 0.0)); // Light POV
-
 }
 
 function updatelightViewMatrix(t){
@@ -124,7 +123,18 @@ function render(currentTimestamp) {
         gl.useProgram(shadowProgram);
         gl.uniformMatrix4fv(gl.getUniformLocation(shadowProgram, "mvpMatrix"), false, flatten(lightMVPMatrix));
 
-        drawTeapot(shadowProgram)
+        // Draw on FBO
+        gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFBO);
+        gl.viewport(0, 0, shadowFBO.width, shadowFBO.height);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        drawTeapot(shadowProgram);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        drawTeapot(teapotProgram);
     }
 
 
@@ -140,15 +150,21 @@ function render(currentTimestamp) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, groundTexture);
     gl.uniform1i(textureLoc, 0);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, shadowFBO.texture);
+    gl.uniform1i(gl.getUniformLocation(groundProgram, "uShadowMap"), 1);
+
     // mvp matrix
     gl.uniformMatrix4fv(mvpMatrixGroundLoc, false, flatten(mvpMatrix));
+    gl.uniformMatrix4fv(gl.getUniformLocation(groundProgram, "uLightMVP"), false, flatten(lightMVPMatrix));
 
     // Shadow program mvp
     gl.useProgram(shadowProgram);
     gl.uniformMatrix4fv(gl.getUniformLocation(shadowProgram, "mvpMatrix"), false, flatten(lightMVPMatrix));
 
     
-    drawGround(shadowProgram)
+    drawGround(groundProgram)
 
     window.requestAnimFrame(render);
 }

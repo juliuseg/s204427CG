@@ -81,7 +81,7 @@ function setupMatricies() {
     teapotModelMatrix = translate(1.0, -0.5, -2.5);
     groundModelMatrix = mat4();
 
-    projectionMatrix = perspective(90, canvas.width / canvas.height, 0.1, 50.0);
+    projectionMatrix = perspective(90, canvas.width / canvas.height, 0.1, 20.0);
     viewMatrix = lookAt(vec3(0, 0, 0), vec3(0.0, -1.0, -2.5), vec3(0.0, 1.0, 0.0));
 
     
@@ -109,11 +109,7 @@ function render(currentTimestamp) {
     gl.useProgram(teapotProgram);
     
     updatelightViewMatrix(currentTimestamp);
-    // TODO
-    // Make the render function more modular. 
-    // Add functions for rendering in specific programs. 
-    // Render FBO in shadow program where only depth is!
-
+    
     // Render the teapot
     if (teapotDrawingInfo) {
         gl.useProgram(teapotProgram);
