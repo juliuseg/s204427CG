@@ -61,15 +61,10 @@
 
     uniform mat4 mvpMatrix;
 
-    // Varying variable to pass depth to the fragment shader
-    varying float vDepth;
-
     void main() {
         // Compute clip-space position
         gl_Position = mvpMatrix * vPosition;
 
-        // Compute normalized device coordinate (NDC) depth
-        vDepth = gl_Position.w;
     }
   </script>
 
@@ -77,12 +72,10 @@
   <script id="fragment-shader-shadow" type="x-shader/x-fragment">
     precision mediump float;
 
-    // Receive the depth from the vertex shader
-    varying float vDepth;
-
     void main() {
         // Use the depth value to set the color (darker for further objects)
         gl_FragColor = vec4(vec3(gl_FragCoord.z,0.0,0.0), 1.0);
+        
     }
   </script>
 

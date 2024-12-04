@@ -2,36 +2,76 @@
 <html>
 <head>
   <script id="vertex-shader-teapot" type="x-shader/x-vertex">
-    attribute vec4 vPosition;
-    attribute vec3 vNormal;
+    attribute vec4 vPosition;      // Vertex position
+    attribute vec3 vNormal;       // Vertex normal
 
-    uniform mat4 mvpMatrix;
-    uniform mat4 modelMatrix; // To transform normals into world space
-    uniform vec3 lightDirection;
+    uniform mat4 mvpMatrix;       // Model-View-Projection matrix
+    uniform mat4 modelMatrix;     // Model matrix for transforming normals
+    uniform vec3 lightPosition;   // Position of the point light in world space
 
-    varying float lightIntensity;
+    uniform mat4 uLightMVP;        // Light's Model-View-Projection (MVP) matrix
+    varying vec4 vLightSpacePos;   // Pass light-space position to the fragment shader
+
+
+    varying float lightIntensity; // Output light intensity to the fragment shader
 
     void main() {
-        gl_Position = mvpMatrix * vPosition;
+        // Compute the position in world space
+        vec3 worldPosition = vec3(modelMatrix * vPosition);
 
-        // Transform the normal to world space and normalize
+        // Compute the normal in world space
         vec3 transformedNormal = normalize(mat3(modelMatrix) * vNormal);
 
-        // Compute simple diffuse lighting
-        lightIntensity = max(dot(transformedNormal, normalize(lightDirection)), 0.0);
+        // Compute the light direction (from world position to light)
+        vec3 lightDirection = normalize(lightPosition - worldPosition);
+
+        // Calculate diffuse light intensity (Lambertian reflection)
+        lightIntensity = max(dot(transformedNormal, lightDirection), 0.0);
+
+        // Transform the vertex position to light space
+        vLightSpacePos = uLightMVP * vPosition;
+
+        // Pass the transformed position to the pipeline
+        gl_Position = mvpMatrix * vPosition;
+
+        
+
     }
   </script>
 
   <script id="fragment-shader-teapot" type="x-shader/x-fragment">
     precision mediump float;
 
-    varying float lightIntensity;
+    varying float lightIntensity; // Light intensity from the vertex shader
+    varying vec4 vLightSpacePos;  // Interpolated light-space position
+
+    uniform sampler2D uShadowMap; // Shadow map texture
 
     void main() {
-        vec3 baseColor = vec3(0.6, 0.6, 0.6); // Red
-        gl_FragColor = vec4(baseColor * lightIntensity, 1.0);
+        // Base color of the teapot
+        vec4 baseColor = vec4(0.7, 0.0, 0.0, 1.0); // Red
+
+        // Transform light-space position to NDC
+        vec3 lightNDC = vLightSpacePos.xyz / vLightSpacePos.w;
+
+        // Map NDC [-1, 1] to [0, 1] for shadow map texture coordinates
+        vec2 shadowTexCoord = lightNDC.xy * 0.5 + 0.5;
+
+        // Fetch the depth from the shadow map
+        float shadowMapDepth = texture2D(uShadowMap, shadowTexCoord).r;
+
+        // Use the same calculation for the current depth as in the shadow map shader
+        float currentDepth = lightNDC.z * 0.5 + 0.5;
+
+        // Add a small bias to avoid shadow acne
+        float bias = 0.005;
+        float shadowFactor =  currentDepth > shadowMapDepth + bias ? 0.5: 1.0;
+
+        // Apply the shadow factor to the base color, modulated by light intensity
+        gl_FragColor = vec4(baseColor.rgb * shadowFactor * lightIntensity, baseColor.a);
     }
   </script>
+
 
 
   <script id="vertex-shader-ground" type="x-shader/x-vertex">
@@ -70,7 +110,7 @@
         // Sample the ground texture
         vec4 baseColor = texture2D(texture, fTexCoord);
 
-        // Transform light-space position to NDC
+        // Transform light-space position to clip space
         vec3 lightNDC = vLightSpacePos.xyz / vLightSpacePos.w;
 
         // Map NDC [-1, 1] to [0, 1] for shadow map texture coordinates
@@ -79,31 +119,29 @@
         // Fetch the depth from the shadow map
         float shadowMapDepth = texture2D(uShadowMap, shadowTexCoord).r;
 
-        // Compare current depth with shadow map depth
-        float currentDepth = lightNDC.z;
+        // Compute current depth using the same formula as the shadow map generation
+        float currentDepth = lightNDC.z * 0.5 + 0.5;
 
         // Add a small bias to avoid shadow acne
-        float shadowFactor = currentDepth > shadowMapDepth + 0.005 ? 1.0 : 0.5;
+        float bias = 0.005;
+        float shadowFactor =  currentDepth > shadowMapDepth + bias ? 0.5: 1.0;
+        
 
         // Apply the shadow factor to the base color
-        gl_FragColor = vec4(baseColor.rgb * shadowFactor, baseColor.a);
+        gl_FragColor = vec4(baseColor.rgb * shadowFactor, baseColor.a*0.7);
     }
-  </script> 
+  </script>
+
 
   <script id="vertex-shader-shadow" type="x-shader/x-vertex">
     attribute vec4 vPosition;
 
     uniform mat4 mvpMatrix;
 
-    // Varying variable to pass depth to the fragment shader
-    varying float vDepth;
-
+    
     void main() {
         // Compute clip-space position
         gl_Position = mvpMatrix * vPosition;
-
-        // Compute normalized device coordinate (NDC) depth
-        vDepth = gl_Position.w;
     }
   </script>
 
@@ -111,12 +149,10 @@
   <script id="fragment-shader-shadow" type="x-shader/x-fragment">
     precision mediump float;
 
-    // Receive the depth from the vertex shader
-    varying float vDepth;
 
     void main() {
         // Use the depth value to set the color (darker for further objects)
-        gl_FragColor = vec4(vec3(gl_FragCoord.z,0.0,0.0), 1.0);
+        gl_FragColor = vec4(vec3(gl_FragCoord.z), 1.0);
     }
   </script>
 
@@ -125,7 +161,7 @@
   <script type="text/javascript" src="../../Common/webgl-utils.js"></script>
   <script type="text/javascript" src="../../Common/initShaders.js"></script>
   <script type="text/javascript" src="../../Common/MV.js"></script>
-  <script type="text/javascript" src="W09P34.js"></script>
+  <script type="text/javascript" src="part1.js"></script>
   <script type="text/javascript" src="../res/OBJParser.js"></script>
   <script type="text/javascript" src="../res/Camera.js"></script>
 

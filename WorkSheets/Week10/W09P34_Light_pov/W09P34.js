@@ -76,9 +76,8 @@ function setUniforms() {
 
 function setupMatricies() {
     // Compute transformation matrices
-    var h = 0;
 
-    teapotModelMatrix = translate(1.0, -0.5, -2.5);
+    teapotModelMatrix = translate(0.0, -0.5, -2.0);
     groundModelMatrix = mat4();
 
     projectionMatrix = perspective(90, canvas.width / canvas.height, 0.1, 20.0);
@@ -92,14 +91,16 @@ function setupShadowMapping() {
     // Create a framebuffer for shadow mapping
     shadowFBO = initFramebufferObject(gl, 1024, 1024);
 
-    lightProjectionMatrix = perspective(90, canvas.width / canvas.height, 2.0, 20.0);
-    lightViewMatrix = lookAt(vec3(3, 3, 0), vec3(0.0, -1.0, -3.0), vec3(0.0, 1.0, 0.0)); // Light POV
+    lightProjectionMatrix = perspective(90, canvas.width / canvas.height, 1.0, 7.0);
+    lightViewMatrix = lookAt(vec3(Math.sin(0/500)*2.0, 3.0, 2.0*Math.cos(0/500)-2.0), vec3(0.0, -0.5, -2.0), vec3(0.0, 1.0, 0.0)); // Light POV
 
 }
 
 function updatelightViewMatrix(t){
     if (!t) t = 0; // Fallback if not provided
-    lightViewMatrix = lookAt(vec3(Math.sin(t/500)*1.5+1.5, 3.0, Math.cos(t/500)), vec3(0.0, -1.0, -3.0), vec3(0.0, 1.0, 0.0)); // Light POV
+    const lightPos = vec3(Math.sin(t/500)*2.0, 3.0, 2.0*Math.cos(t/500)-2.0)
+
+    lightViewMatrix = lookAt(lightPos, vec3(0.0, -0.5, -2.0), vec3(0.0, 1.0, 0.0)); // Light POV
 }
 
 function render(currentTimestamp) {
@@ -131,29 +132,14 @@ function render(currentTimestamp) {
         gl.useProgram(shadowProgram);
         gl.uniformMatrix4fv(gl.getUniformLocation(shadowProgram, "mvpMatrix"), false, flatten(lightMVPMatrix));
 
-
-        // Shadow render first:
-        gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFBO);
-        gl.viewport(0, 0, shadowFBO.width, shadowFBO.height);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
         drawTeapot(shadowProgram)
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, canvas.width, canvas.height);
-
-        drawTeapot(teapotProgram)
 
     }
-
-
-    
 
     var modelMatrix = mat4() // Place the ground below
     var mvpMatrix = mult(projectionMatrix, mult(viewMatrix, modelMatrix));
     var lightMVPMatrix = mult(lightProjectionMatrix, mult(lightViewMatrix, modelMatrix));
-    
-    
     
     // Set in ground program
     gl.useProgram(groundProgram);
@@ -162,11 +148,6 @@ function render(currentTimestamp) {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, groundTexture);
     gl.uniform1i(textureLoc, 0);
-
-    // Shadow texture
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, shadowFBO.texture);
-    gl.uniform1i(gl.getUniformLocation(groundProgram, "uShadowMap"), 1);
 
     // mvp matrix
     gl.uniformMatrix4fv(mvpMatrixGroundLoc, false, flatten(mvpMatrix));
@@ -177,7 +158,7 @@ function render(currentTimestamp) {
     gl.uniformMatrix4fv(gl.getUniformLocation(shadowProgram, "mvpMatrix"), false, flatten(lightMVPMatrix));
 
     
-    drawGround(groundProgram)
+    drawGround(shadowProgram)
 
     window.requestAnimFrame(render);
 }
@@ -202,7 +183,7 @@ function drawTeapot(program) {
 }
 
 function drawGround(program) {
-        gl.useProgram(program);
+    gl.useProgram(program);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffers.vertexBuffer);
     var vPosition = gl.getAttribLocation(program, "vPosition");

@@ -9,8 +9,8 @@ var groundTexture;
 var visibilityLoc;
 
 jumpSpeed = 3.0;
-jumping = false;
-light_anim = false;
+jumping = true;
+light_anim = true;
 
 
 window.onload = function init() {

@@ -1,17 +1,26 @@
 var gl;
 var canvas;
-var teapotProgram, groundProgram;
+var teapotProgram, groundProgram, shadowProgram;
 var teapotBuffers = {};
 var groundBuffers = {};
 var teapotDrawingInfo = null;
 
 var groundTexture;
 
-var lightMVPMatrix; // Define this variable globally at the top of the script
+var lightProjectionMatrix, lightViewMatrix; 
 
+var shadowFBO;
+
+var teapotModelMatrix, groundModelMatrix, projectionMatrix, viewMatrix;
+
+var mvpMatrixTeapotLoc, modelMatrixTeapotLoc, lightPosTeapotLoc;
+var textureLoc, mvpMatrixGroundLoc;
+
+var lightPos;
+
+var jumping = true;
 
 window.onload = function init() {
-    // Get the canvas element
     canvas = document.getElementById("gl-canvas");
 
     // Initialize WebGL context
@@ -20,23 +29,25 @@ window.onload = function init() {
         console.error("WebGL isn’t available");
         return;
     }
-
-    // Set up WebGL context properties
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(0.3921, 0.5843, 0.9294, 1.0);
     gl.enable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE)
 
-    // Enable OES_element_index_uint extension for high-poly models
+    // Enable the OES_element_index_uint extension
     var ext = gl.getExtension('OES_element_index_uint');
     if (!ext) {
         console.log('Warning: Unable to use OES_element_index_uint. High-poly models may not render correctly.');
     }
 
-    // Load and initialize shader programs
+    // Load shaders and create programs
     teapotProgram = initShaders(gl, "vertex-shader-teapot", "fragment-shader-teapot");
     groundProgram = initShaders(gl, "vertex-shader-ground", "fragment-shader-ground");
+    shadowProgram = initShaders(gl, "vertex-shader-shadow", "fragment-shader-shadow");
 
-    // Initialize buffers for the ground
+   
+
+    // Initialize the ground quad
     initQuadBuffers();
 
     // Load texture for the ground
@@ -45,13 +56,208 @@ window.onload = function init() {
     // Load the teapot model
     loadTeapotModel("../models/teapot/teapot.obj", 0.25, true);
 
-    // Set up shadow mapping
-    setupShadowMapping();
+    setupShadowMapping()
 
-    // Start rendering
+    setupMatricies()
+
+    setUniforms()
+
     render();
 };
 
+function setUniforms() {
+    mvpMatrixTeapotLoc = gl.getUniformLocation(teapotProgram, "mvpMatrix");
+    modelMatrixTeapotLoc = gl.getUniformLocation(teapotProgram, "modelMatrix");
+    lightPosTeapotLoc = gl.getUniformLocation(teapotProgram, "lightPosition");
+
+    mvpMatrixGroundLoc = gl.getUniformLocation(groundProgram, "mvpMatrix");
+    textureLoc = gl.getUniformLocation(groundProgram, "texture");
+    
+}
+
+function setupMatricies() {
+
+    teapotModelMatrix = translate(0.0, -1.0, -2.0);
+    groundModelMatrix = mat4();
+
+    projectionMatrix = perspective(90, canvas.width / canvas.height, 0.1, 20.0);
+    viewMatrix = lookAt(vec3(0, 0, 0), vec3(0.0, -1.0, -2.5), vec3(0.0, 1.0, 0.0));
+
+    
+}
+
+
+
+
+function setupShadowMapping() {
+    shadowFBO = initFramebufferObject(gl, 1024, 1024);
+
+    lightProjectionMatrix = perspective(90, canvas.width / canvas.height, 1.0, 7.0);
+    lightViewMatrix = lookAt(vec3(3, 3, 0), vec3(0.0, -1.0, -3.0), vec3(0.0, 1.0, 0.0)); // Light POV
+}
+
+function updatelightViewMatrix(t){
+    if (!t) t = 0; // Fallback if not provided
+    lightPos = vec3(Math.sin(t/500)*2.0, 3.0, 2.0*Math.cos(t/500)-2.0)
+    lightViewMatrix = lookAt(lightPos, vec3(0.0, -0.5, -2.0), vec3(0.0, 1.0, 0.0)); // Light POV
+}
+
+function updateJumping(t){
+    teapotModelMatrix = translate(0.0, Math.cos(t/300)*0.5-0.5, -2.0);
+
+}
+
+function render(currentTimestamp) {
+
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    
+    updatelightViewMatrix(currentTimestamp);
+    updateJumping(currentTimestamp);
+
+    // Render the teapot
+    if (teapotDrawingInfo) {        
+        // Set light direcetion, relevant for teapotprogram only
+
+        // Setup matricies
+        var mvpMatrix = mult(projectionMatrix, mult(viewMatrix, teapotModelMatrix));
+        var lightMVPMatrix = mult(lightProjectionMatrix, mult(lightViewMatrix,teapotModelMatrix));
+
+        // Set light, mvp and model matrix in the teapot program
+        gl.useProgram(teapotProgram);
+        gl.uniformMatrix4fv(mvpMatrixTeapotLoc, false, flatten(mvpMatrix));
+        gl.uniformMatrix4fv(modelMatrixTeapotLoc, false, flatten(teapotModelMatrix));
+        gl.uniform3fv(lightPosTeapotLoc, flatten(lightPos));
+
+        // Set shadow program mvp from light.
+        gl.useProgram(shadowProgram);
+        gl.uniformMatrix4fv(gl.getUniformLocation(shadowProgram, "mvpMatrix"), false, flatten(lightMVPMatrix));
+
+        // Draw on FBO
+        gl.clearColor(1.0, 1.0, 1.0, 1.0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFBO);
+        gl.viewport(0, 0, shadowFBO.width, shadowFBO.height);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        drawTeapot(shadowProgram);
+
+
+        gl.clearColor(0.3921, 0.5843, 0.9294, 1.0);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+
+        gl.useProgram(teapotProgram);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, shadowFBO.texture);
+        gl.uniform1i(gl.getUniformLocation(teapotProgram, "uShadowMap"), 1);
+
+        gl.uniformMatrix4fv(gl.getUniformLocation(teapotProgram, "uLightMVP"), false, flatten(lightMVPMatrix));
+
+        drawTeapot(teapotProgram);
+    }
+
+    var modelMatrix = mat4() // Place the ground below
+    var mvpMatrix = mult(projectionMatrix, mult(viewMatrix, modelMatrix));
+    var lightMVPMatrix = mult(lightProjectionMatrix, mult(lightViewMatrix, modelMatrix));
+    
+    // Set in ground program
+    gl.useProgram(groundProgram);
+    // Texture
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, groundTexture);
+    gl.uniform1i(textureLoc, 0);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, shadowFBO.texture);
+    gl.uniform1i(gl.getUniformLocation(groundProgram, "uShadowMap"), 1);
+
+    // mvp matrix
+    gl.uniformMatrix4fv(mvpMatrixGroundLoc, false, flatten(mvpMatrix));
+    gl.uniformMatrix4fv(gl.getUniformLocation(groundProgram, "uLightMVP"), false, flatten(lightMVPMatrix));
+
+    // Shadow program mvp
+    gl.useProgram(shadowProgram);
+    gl.uniformMatrix4fv(gl.getUniformLocation(shadowProgram, "mvpMatrix"), false, flatten(lightMVPMatrix));
+
+    
+    drawGround(groundProgram)
+
+    window.requestAnimFrame(render);
+}
+
+function drawTeapot(program) {
+    gl.useProgram(program);
+    // Bind and enable vertex buffer, Relevant for all
+    gl.bindBuffer(gl.ARRAY_BUFFER, teapotBuffers.vertexBuffer);
+    var vPosition = gl.getAttribLocation(program, "vPosition");
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+
+    // Bind and enable normal buffer, relevant for all
+    gl.bindBuffer(gl.ARRAY_BUFFER, teapotBuffers.normalBuffer);
+    var vNormal = gl.getAttribLocation(program, "vNormal");
+    gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vNormal);
+
+    // Bind and draw element buffer, relevant for all
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, teapotBuffers.indexBuffer);
+    gl.drawElements(gl.TRIANGLES, teapotDrawingInfo.indices.length, gl.UNSIGNED_INT, 0);
+}
+
+function drawGround(program) {
+        gl.useProgram(program);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffers.vertexBuffer);
+    var vPosition = gl.getAttribLocation(program, "vPosition");
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffers.texCoordBuffer);
+    var vTexCoord = gl.getAttribLocation(program, "vTexCoord");
+    gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vTexCoord);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, groundBuffers.indexBuffer);
+    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+}
+
+async function loadTeapotModel(fileName, scale, reverse) {
+    teapotDrawingInfo = await readOBJFile(fileName, scale, reverse);
+    if (teapotDrawingInfo) {
+        initTeapotBuffers(teapotDrawingInfo);
+    }
+}
+
+function initTeapotBuffers(drawingInfo) {
+    // Recalculate normals in case they are misaligned
+    const recalculatedNormals = calculateNormals(drawingInfo.vertices, drawingInfo.indices);
+
+    // Create and set up the position buffer
+    teapotBuffers.vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, teapotBuffers.vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, drawingInfo.vertices, gl.STATIC_DRAW);
+
+    var vPosition = gl.getAttribLocation(gl.getParameter(gl.CURRENT_PROGRAM), "vPosition");
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+
+    // Create and set up the normal buffer
+    teapotBuffers.normalBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, teapotBuffers.normalBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, recalculatedNormals, gl.STATIC_DRAW);
+
+    var vNormal = gl.getAttribLocation(gl.getParameter(gl.CURRENT_PROGRAM), "vNormal");
+    gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vNormal);
+
+    // Create and set up the index buffer
+    teapotBuffers.indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, teapotBuffers.indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, drawingInfo.indices, gl.STATIC_DRAW);
+}
 
 function initQuadBuffers() {
     // Quad vertices and texture coordinates
@@ -89,7 +295,6 @@ function initQuadBuffers() {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
 }
 
-
 function loadTexture(imagePath) {
     groundTexture = gl.createTexture();
     var image = new Image();
@@ -102,66 +307,6 @@ function loadTexture(imagePath) {
     };
     image.src = imagePath;
 }
-
-
-async function loadTeapotModel(fileName, scale, reverse) {
-    teapotDrawingInfo = await readOBJFile(fileName, scale, reverse);
-    if (teapotDrawingInfo) {
-        initTeapotBuffers(teapotDrawingInfo);
-    }
-}
-
-function initTeapotBuffers(drawingInfo) {
-    gl.useProgram(teapotProgram);
-
-    // Recalculate normals in case they are misaligned
-    const recalculatedNormals = calculateNormals(drawingInfo.vertices, drawingInfo.indices);
-
-    // Create and set up the position buffer
-    teapotBuffers.vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, teapotBuffers.vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, drawingInfo.vertices, gl.STATIC_DRAW);
-
-    var vPosition = gl.getAttribLocation(gl.getParameter(gl.CURRENT_PROGRAM), "vPosition");
-    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(vPosition);
-
-    // Create and set up the normal buffer
-    teapotBuffers.normalBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, teapotBuffers.normalBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, recalculatedNormals, gl.STATIC_DRAW);
-
-    var vNormal = gl.getAttribLocation(gl.getParameter(gl.CURRENT_PROGRAM), "vNormal");
-    gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(vNormal);
-
-    // Create and set up the index buffer
-    teapotBuffers.indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, teapotBuffers.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, drawingInfo.indices, gl.STATIC_DRAW);
-}
-
-
-
-function setupShadowMapping() {
-    // Create a framebuffer for shadow mapping
-    shadowFBO = initFramebufferObject(gl, 1024, 1024);
-
-    // Define light's projection and view matrices
-    const lightProjectionMatrix = ortho(-10, 10, -10, 10, 1.0, 50.0); // Orthographic projection
-    const lightViewMatrix = lookAt(vec3(5, 10, 5), vec3(0, 0, 0), vec3(0, 1, 0)); // Light POV
-
-    // Compute the light's MVP matrix
-    lightMVPMatrix = mult(lightProjectionMatrix, lightViewMatrix);
-
-    // Pass shadow map-related matrices to shaders
-    gl.useProgram(groundProgram);
-    gl.uniformMatrix4fv(gl.getUniformLocation(groundProgram, "lightMVPMatrix"), false, flatten(lightMVPMatrix));
-
-    gl.useProgram(teapotProgram);
-    gl.uniform3fv(gl.getUniformLocation(teapotProgram, "lightDirection"), flatten(vec3(5, 10, 5)));
-}
-
 
 
 function initFramebufferObject(gl, width, height)
@@ -182,218 +327,6 @@ function initFramebufferObject(gl, width, height)
     framebuffer.width = width; framebuffer.height = height;
     return framebuffer;
 }
-
-
-
-function render() {
-    // Clear the screen and depth buffer for the new frame
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    // Compute light's MVP matrix
-    gl.useProgram(teapotProgram);
-    const lightMVPMatrixLoc = gl.getUniformLocation(teapotProgram, "lightMVPMatrix");
-    if (lightMVPMatrixLoc) {
-        gl.uniformMatrix4fv(lightMVPMatrixLoc, false, flatten(lightMVPMatrix));
-    }
-    // Step 1: Render the shadow map (to the FBO)
-    renderToFBO(gl, shadowFBO, lightMVPMatrix);
-
-    // Step 2: Render the teapot with shadow mapping applied
-    const cameraProjectionMatrix = perspective(90, canvas.width / canvas.height, 0.1, 50.0);
-    const cameraViewMatrix = lookAt(vec3(0, 0, 0), vec3(0.0, -1.0, -2.5), vec3(0.0, 1.0, 0.0));
-    if (teapotDrawingInfo) renderTeapot(gl, teapotProgram, cameraProjectionMatrix, cameraViewMatrix, lightMVPMatrix);
-
-    // Step 3: Render the ground with shadow mapping applied
-    renderGround(gl, groundProgram, cameraProjectionMatrix, cameraViewMatrix, lightMVPMatrix);
-
-    // Request the next frame
-    window.requestAnimFrame(render);
-}
-
-
-function renderToFBO(gl, shadowFBO, lightMVPMatrix) {
-    // Bind the FBO
-    gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFBO);
-
-    // Set the viewport to match the shadow map resolution
-    gl.viewport(0, 0, shadowFBO.width, shadowFBO.height);
-
-    // Clear the FBO
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    // Use the shadow mapping shader program
-    gl.useProgram(groundProgram);
-
-    // Pass the light's MVP matrix to the shader
-    gl.uniformMatrix4fv(gl.getUniformLocation(groundProgram, "mvpMatrix"), false, flatten(lightMVPMatrix));
-
-    // Render the teapot
-    if (teapotDrawingInfo) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, teapotBuffers.vertexBuffer);
-        const vPosition = gl.getAttribLocation(groundProgram, "vPosition");
-        gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(vPosition);
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, teapotBuffers.indexBuffer);
-        gl.drawElements(gl.TRIANGLES, teapotDrawingInfo.indices.length, gl.UNSIGNED_INT, 0);
-    }
-
-    // Unbind the FBO
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-}
-
-function renderTeapot(gl, teapotProgram, projectionMatrix, viewMatrix, lightMVPMatrix) {
-    // Use the teapot shader program
-    gl.useProgram(teapotProgram);
-
-    // Compute transformation matrices
-    const modelMatrix = translate(0.0, -1.0, -3.0); // Teapot position
-    const mvpMatrix = mult(projectionMatrix, mult(viewMatrix, modelMatrix));
-
-    // Pass matrices and light data to the shader
-    gl.uniformMatrix4fv(gl.getUniformLocation(teapotProgram, "mvpMatrix"), false, flatten(mvpMatrix));
-    gl.uniformMatrix4fv(gl.getUniformLocation(teapotProgram, "modelMatrix"), false, flatten(modelMatrix));
-    gl.uniform3fv(gl.getUniformLocation(teapotProgram, "lightDirection"), flatten(vec3(5, 10, 5)));
-    gl.uniformMatrix4fv(gl.getUniformLocation(teapotProgram, "lightMVPMatrix"), false, flatten(lightMVPMatrix));
-
-    // Bind and enable vertex attributes
-    gl.bindBuffer(gl.ARRAY_BUFFER, teapotBuffers.vertexBuffer);
-    const vPosition = gl.getAttribLocation(teapotProgram, "vPosition");
-    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(vPosition);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, teapotBuffers.normalBuffer);
-    const vNormal = gl.getAttribLocation(teapotProgram, "vNormal");
-    gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(vNormal);
-
-    // Bind and draw element buffer
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, teapotBuffers.indexBuffer);
-    gl.drawElements(gl.TRIANGLES, teapotDrawingInfo.indices.length, gl.UNSIGNED_INT, 0);
-}
-
-function renderGround(gl, groundProgram, projectionMatrix, viewMatrix, lightMVPMatrix) {
-    // Use the ground shader program
-    gl.useProgram(groundProgram);
-
-    // Compute the ground's transformation matrices
-    const modelMatrix = mat4(); // Identity matrix for ground at default position
-    const mvpMatrix = mult(projectionMatrix, mult(viewMatrix, modelMatrix));
-
-    // Pass matrices and shadow map data to the shader
-    gl.uniformMatrix4fv(gl.getUniformLocation(groundProgram, "mvpMatrix"), false, flatten(mvpMatrix));
-    gl.uniformMatrix4fv(gl.getUniformLocation(groundProgram, "lightMVPMatrix"), false, flatten(lightMVPMatrix));
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, shadowFBO.texture);
-    gl.uniform1i(gl.getUniformLocation(groundProgram, "shadowMap"), 0);
-
-    // Bind the ground texture
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, groundTexture);
-    gl.uniform1i(gl.getUniformLocation(groundProgram, "texture"), 1);
-
-    // Bind and enable vertex attributes
-    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffers.vertexBuffer);
-    const vPosition = gl.getAttribLocation(groundProgram, "vPosition");
-    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(vPosition);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffers.texCoordBuffer);
-    const vTexCoord = gl.getAttribLocation(groundProgram, "vTexCoord");
-    gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(vTexCoord);
-
-    // Bind and draw element buffer
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, groundBuffers.indexBuffer);
-    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-}
-
-
-
-async function loadTeapotModel(fileName, scale, reverse) {
-    teapotDrawingInfo = await readOBJFile(fileName, scale, reverse);
-    if (teapotDrawingInfo) {
-        initTeapotBuffers(teapotDrawingInfo);
-    }
-}
-
-function initTeapotBuffers(drawingInfo) {
-    // Recalculate normals in case they are misaligned
-    const recalculatedNormals = calculateNormals(drawingInfo.vertices, drawingInfo.indices);
-
-    // Create and set up the position buffer
-    teapotBuffers.vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, teapotBuffers.vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, drawingInfo.vertices, gl.STATIC_DRAW);
-
-    var vPosition = gl.getAttribLocation(gl.getParameter(gl.CURRENT_PROGRAM), "vPosition");
-    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(vPosition);
-
-    // Create and set up the normal buffer
-    teapotBuffers.normalBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, teapotBuffers.normalBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, recalculatedNormals, gl.STATIC_DRAW);
-
-    var vNormal = gl.getAttribLocation(gl.getParameter(gl.CURRENT_PROGRAM), "vNormal");
-    gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(vNormal);
-
-    // Create and set up the index buffer
-    teapotBuffers.indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, teapotBuffers.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, drawingInfo.indices, gl.STATIC_DRAW);
-}
-
-function initQuadBuffers() {
-    // Quad vertices and texture coordinates
-    var vertices = new Float32Array([
-        -2, -1, -1, 1.0, // Bottom-left
-        2, -1, -1, 1.0, // Bottom-right
-        2, -1, -5, 1.0, // Top-right
-        -2, -1, -5, 1.0  // Top-left
-    ]);
-
-    var texCoords = new Float32Array([
-        0.0, 0.0, // Bottom-left
-        1.0, 0.0, // Bottom-right
-        1.0, 1.0, // Top-right
-        0.0, 1.0  // Top-left
-    ]);
-
-    var indices = new Uint16Array([
-        0, 1, 2, 
-        0, 2, 3
-    ]);
-
-    // Create buffers specific to the ground quad
-    groundBuffers.vertexBuffer = gl.createBuffer();
-    groundBuffers.texCoordBuffer = gl.createBuffer();
-    groundBuffers.indexBuffer = gl.createBuffer();
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffers.vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, groundBuffers.texCoordBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, groundBuffers.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
-}
-
-function loadTexture(imagePath) {
-    groundTexture = gl.createTexture();
-    var image = new Image();
-    image.onload = function () {
-        gl.bindTexture(gl.TEXTURE_2D, groundTexture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-        gl.generateMipmap(gl.TEXTURE_2D);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    };
-    image.src = imagePath;
-}
-
 
 
 
